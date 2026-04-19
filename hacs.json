@@ -1,6 +1,6 @@
 {
   "name": "Vestaboard Composer",
   "render_readme": true,
-  "filename": "vestaboard-composer.js",
+  "filename": "ha-vestaboard-composer.js",
   "homeassistant": "2024.4.0"
 }
