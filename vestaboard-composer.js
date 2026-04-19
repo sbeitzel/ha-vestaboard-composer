@@ -813,19 +813,22 @@ class VestaboardComposer extends HTMLElement {
     const rawLines = this._board.map(row => '[' + row.join(',') + ']');
     this._el('outputRaw').textContent = '[\n  ' + rawLines.join(',\n  ') + '\n]';
 
-    // VBML JSON
-    const template = this._board.flat().map(code => `{${code}}`).join('');
+    // VBML JSON — rawCharacters preserves exact cell positions
     this._el('outputJson').textContent = JSON.stringify(
-      { components: [{ template }] }, null, 2
+      { components: [{ rawCharacters: this._board }] }, null, 2
     );
 
     // HA Action YAML
+    const rowsYaml = this._board
+      .map(row => '          - [' + row.join(', ') + ']')
+      .join('\n');
     this._el('outputYaml').textContent = [
       'action: vestaboard.message',
       'data:',
       '  vbml:',
       '    components:',
-      `      - template: "${template}"`,
+      '      - rawCharacters:',
+      rowsYaml,
     ].join('\n');
   }
 
@@ -882,10 +885,9 @@ class VestaboardComposer extends HTMLElement {
       return;
     }
 
-    const template = this._board.flat().map(code => `{${code}}`).join('');
     const serviceData = {
       device_id: [deviceId],
-      vbml: { components: [{ template }] },
+      vbml: { components: [{ rawCharacters: this._board }] },
     };
 
     const raw = this._durationInput.value.trim();

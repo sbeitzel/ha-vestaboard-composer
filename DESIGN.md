@@ -33,20 +33,23 @@ Both models use the same character code scheme and VBML format. The `vestaboard.
 ## VBML Format
 
 - Output is a single `components` array at the root level (not nested inside `props`)
-- Each board is expressed as one component using the `template` field
-- The template is a flat string of N `{code}` tokens — one per cell, all rows concatenated
-- `rawCharacters` with a 2D array was considered and rejected in favor of `template`
+- Each board is expressed as one component using `rawCharacters`
+- `rawCharacters` is a 2D array (list of rows, each row a list of 22 codes)
+- `template` was tried first but rejected: the VBML engine treats `{0}` tokens as whitespace in a text flow and left-aligns non-zero content, destroying precise cell positioning
 
 ### HA Action YAML
 
-The `vbml` field must be a **nested YAML mapping**, not a JSON string scalar. The template string must be **double-quoted** in YAML because `{` would otherwise be interpreted as a YAML flow mapping.
+The `vbml` field must be a **nested YAML mapping**, not a JSON string scalar. Each row is expressed as a YAML flow sequence:
 
 ```yaml
 action: vestaboard.message
 data:
   vbml:
     components:
-      - template: "{66}{0}..."
+      - rawCharacters:
+          - [0, 0, 66, 66, ...]
+          - [0, 0, 0, ...]
+          ...
 ```
 
 ### Duration

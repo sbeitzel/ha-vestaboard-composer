@@ -902,22 +902,22 @@ function updateOutputs() {
   const rawStr = '[\n  ' + rawLines.join(',\n  ') + '\n]';
   document.getElementById('outputRaw').textContent = rawStr;
 
-  // VBML JSON — single component with all 132 cells as {code} tokens
-  const template = board.flat().map(code => `{${code}}`).join('');
-  const vbml = {
-    components: [{
-      template: template
-    }]
-  };
-  document.getElementById('outputJson').textContent = JSON.stringify(vbml, null, 2);
+  // VBML JSON — rawCharacters preserves exact cell positions
+  document.getElementById('outputJson').textContent = JSON.stringify(
+    { components: [{ rawCharacters: board }] }, null, 2
+  );
 
   // HA Action YAML — ready to paste into Developer Tools > Actions
+  const rowsYaml = board
+    .map(row => '          - [' + row.join(', ') + ']')
+    .join('\n');
   const yaml = [
     'action: vestaboard.message',
     'data:',
     '  vbml:',
     '    components:',
-    `      - template: "${template}"`,
+    '      - rawCharacters:',
+    rowsYaml,
   ].join('\n');
   document.getElementById('outputYaml').textContent = yaml;
 }
