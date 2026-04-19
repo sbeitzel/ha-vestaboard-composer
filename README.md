@@ -24,8 +24,10 @@ Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) inte
 
 ## Installation via HACS
 
-1. In HACS, go to **Frontend** → **+ Explore & Download Repositories**
-2. Search for **Vestaboard Composer** and download it
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sbeitzel&repository=ha-vestaboard-composer&category=Frontend)
+
+1. Click the button above, or in HACS go to **Frontend** → **+ Explore & Download Repositories** and search for **Vestaboard Composer**
+2. Download the repository
 3. Add the panel to your `configuration.yaml`:
 
 ```yaml
