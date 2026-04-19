@@ -94,7 +94,7 @@ Expand the **Send to Vestaboard** section:
 
 ### Output Boxes
 The three output boxes update live and can be copied to clipboard:
-- **Raw Array** — `[[...], ...]` 6×22 array for the local API
+- **Raw Array** — `[[...], ...]` rows×columns array for the local API
 - **VBML JSON** — single-component VBML object for the cloud API
 - **HA Action YAML** — ready to paste into Developer Tools → Actions or an automation
 
