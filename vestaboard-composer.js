@@ -2,12 +2,15 @@
 // HACS frontend plugin — Vestaboard Composer Panel for Home Assistant
 // https://github.com/sbeitzel/ha-vestaboard-composer
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 console.info(`[vestaboard-composer] v${VERSION} loaded`);
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const ROWS = 6, COLS = 22;
+const BOARD_MODELS = {
+  flagship: { rows: 6, cols: 22, label: 'Flagship (22\u00d76)' },
+  note:     { rows: 3, cols: 15, label: 'Note (15\u00d73)'     },
+};
 
 const CHAR_MAP = {
   ' ': 0,
@@ -161,6 +164,25 @@ const CSS = `
     text-transform: uppercase;
     align-self: flex-start;
     padding-left: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .board-model-select {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #1a1a2e;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
+  }
+  .board-model-select:focus {
+    outline: 1px solid var(--accent);
   }
 
   .board-outer {
@@ -175,8 +197,6 @@ const CSS = `
 
   .board-grid {
     display: grid;
-    grid-template-columns: repeat(22, var(--cell-size));
-    grid-template-rows: repeat(6, var(--cell-size));
     gap: var(--cell-gap);
     outline: none;
     user-select: none;
@@ -453,7 +473,13 @@ const HTML = `
   <div class="main">
 
     <div class="board-wrapper">
-      <div class="board-label">22 &times; 6 BOARD &mdash; click a cell to move cursor, then type</div>
+      <div class="board-label">
+        <select id="boardModel" class="board-model-select">
+          <option value="flagship">Flagship (22&times;6)</option>
+          <option value="note">Note (15&times;3)</option>
+        </select>
+        &mdash; click a cell to move cursor, then type
+      </div>
       <div class="board-outer">
         <div class="board-grid" id="boardGrid" tabindex="0"></div>
       </div>
@@ -558,7 +584,9 @@ class VestaboardComposer extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this._hass = null;
-    this._board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    this._rows = 6;
+    this._cols = 22;
+    this._board = Array.from({ length: 6 }, () => Array(22).fill(0));
     this._cursorRow = 0;
     this._cursorCol = 0;
     this._selectedColor = null;
@@ -595,6 +623,9 @@ class VestaboardComposer extends HTMLElement {
     this._settingsModal = this._el('settingsModal');
     this._wrapper      = this.shadowRoot.querySelector('.wrapper');
 
+    this._el('boardModel').addEventListener('change', e => this._setModel(e.target.value));
+    this._applyGridStyle();
+
     this._buildGrid();
     this._buildPalette();
     this._renderBoard();
@@ -630,8 +661,8 @@ class VestaboardComposer extends HTMLElement {
 
   _buildGrid() {
     this._grid.innerHTML = '';
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._cols; c++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
         cell.dataset.row = r;
@@ -650,13 +681,31 @@ class VestaboardComposer extends HTMLElement {
     }
   }
 
+  _applyGridStyle() {
+    this._grid.style.gridTemplateColumns = `repeat(${this._cols}, var(--cell-size))`;
+    this._grid.style.gridTemplateRows    = `repeat(${this._rows}, var(--cell-size))`;
+  }
+
+  _setModel(modelKey) {
+    const model = BOARD_MODELS[modelKey];
+    if (!model) return;
+    this._rows = model.rows;
+    this._cols = model.cols;
+    this._board = Array.from({ length: this._rows }, () => Array(this._cols).fill(0));
+    this._cursorRow = 0;
+    this._cursorCol = 0;
+    this._applyGridStyle();
+    this._buildGrid();
+    this._renderBoard();
+  }
+
   _getCell(r, c) {
-    return this._grid.children[r * COLS + c];
+    return this._grid.children[r * this._cols + c];
   }
 
   _renderBoard() {
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._cols; c++) {
         const val  = this._board[r][c];
         const cell = this._getCell(r, c);
 
@@ -689,10 +738,10 @@ class VestaboardComposer extends HTMLElement {
     if (key === 'ArrowUp')    { this._moveCursor(-1, 0); e.preventDefault(); return; }
     if (key === 'Tab')        { this._moveCursor(0,  1); e.preventDefault(); return; }
     if (key === 'Home')       { this._cursorCol = 0;          this._renderBoard(); e.preventDefault(); return; }
-    if (key === 'End')        { this._cursorCol = COLS - 1;   this._renderBoard(); e.preventDefault(); return; }
+    if (key === 'End')        { this._cursorCol = this._cols - 1; this._renderBoard(); e.preventDefault(); return; }
 
     if (key === 'Enter') {
-      if (this._cursorRow < ROWS - 1) { this._cursorRow++; this._cursorCol = 0; }
+      if (this._cursorRow < this._rows - 1) { this._cursorRow++; this._cursorCol = 0; }
       this._renderBoard(); e.preventDefault(); return;
     }
 
@@ -717,8 +766,8 @@ class VestaboardComposer extends HTMLElement {
   }
 
   _moveCursor(dr, dc) {
-    this._cursorRow = Math.max(0, Math.min(ROWS - 1, this._cursorRow + dr));
-    this._cursorCol = Math.max(0, Math.min(COLS - 1, this._cursorCol + dc));
+    this._cursorRow = Math.max(0, Math.min(this._rows - 1, this._cursorRow + dr));
+    this._cursorCol = Math.max(0, Math.min(this._cols - 1, this._cursorCol + dc));
     this._renderBoard();
   }
 
@@ -773,13 +822,13 @@ class VestaboardComposer extends HTMLElement {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   _clearBoard() {
-    this._board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    this._board = Array.from({ length: this._rows }, () => Array(this._cols).fill(0));
     this._cursorRow = 0; this._cursorCol = 0;
     this._renderBoard();
   }
 
   _clearRow() {
-    this._board[this._cursorRow] = Array(COLS).fill(0);
+    this._board[this._cursorRow] = Array(this._cols).fill(0);
     this._cursorCol = 0;
     this._renderBoard();
   }
@@ -787,7 +836,7 @@ class VestaboardComposer extends HTMLElement {
   _centerTextInRow() {
     const row = this._board[this._cursorRow];
     let first = -1, last = -1;
-    for (let c = 0; c < COLS; c++) {
+    for (let c = 0; c < this._cols; c++) {
       const v = row[c];
       if (v !== 0 && !(v >= 63 && v <= 71)) {
         if (first === -1) first = c;
@@ -796,8 +845,8 @@ class VestaboardComposer extends HTMLElement {
     }
     if (first === -1) return;
     const content = row.slice(first, last + 1);
-    const pad     = Math.floor((COLS - content.length) / 2);
-    const newRow  = Array(COLS).fill(0);
+    const pad     = Math.floor((this._cols - content.length) / 2);
+    const newRow  = Array(this._cols).fill(0);
     content.forEach((v, i) => { newRow[pad + i] = v; });
     this._board[this._cursorRow] = newRow;
     this._renderBoard();
@@ -805,7 +854,7 @@ class VestaboardComposer extends HTMLElement {
 
   _fillRow() {
     const code = this._selectedColor !== null ? this._selectedColor : 63; // default: Red
-    this._board[this._cursorRow] = Array(COLS).fill(code);
+    this._board[this._cursorRow] = Array(this._cols).fill(code);
     this._renderBoard();
   }
 

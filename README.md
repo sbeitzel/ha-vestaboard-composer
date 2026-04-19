@@ -4,11 +4,14 @@ A HACS frontend plugin for Home Assistant that provides a visual board composer 
 
 Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) integration.
 
+![Vestaboard Composer screenshot](screenshot.png)
+
 ---
 
 ## Features
 
-- Visual 22×6 grid editor with keyboard navigation
+- Supports **Flagship** (22×6) and **Note** (15×3) board models — switch with the dropdown in the top-left
+- Visual grid editor with keyboard navigation
 - Color tile palette (verified color codes)
 - Per-row actions: Clear, Center text, Fill with color
 - Three output formats for use in automations:
