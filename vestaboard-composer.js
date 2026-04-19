@@ -2,6 +2,9 @@
 // HACS frontend plugin — Vestaboard Composer Panel for Home Assistant
 // https://github.com/sbeitzel/ha-vestaboard-composer
 
+const VERSION = '1.1.0';
+console.info(`[vestaboard-composer] v${VERSION} loaded`);
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const ROWS = 6, COLS = 22;
@@ -900,6 +903,7 @@ class VestaboardComposer extends HTMLElement {
       serviceData.duration = duration;
     }
 
+    console.info('[vestaboard-composer] sending service data:', JSON.stringify(serviceData));
     try {
       await this._hass.callService('vestaboard', 'message', serviceData);
       this._showStatus('✓ Message sent!', 'success');
