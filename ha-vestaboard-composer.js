@@ -116,6 +116,14 @@ const CSS = `
 
   .header-actions { display: flex; gap: 10px; align-items: center; }
 
+  .version-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+  }
+
   /* ── Buttons ── */
   button {
     font-family: 'DM Sans', sans-serif;
@@ -183,6 +191,18 @@ const CSS = `
   }
   .board-model-select:focus {
     outline: 1px solid var(--accent);
+  }
+
+  .board-outer.white-board {
+    background: #f0f0f0;
+    box-shadow: 0 0 40px #0004, inset 0 0 0 1px #00000010;
+  }
+  .board-outer.white-board .cell {
+    background: var(--vb-white);
+    border-color: #ccc;
+  }
+  .board-outer.white-board .cell[data-char]:not([data-char="0"]) {
+    color: #111;
   }
 
   .board-outer {
@@ -275,7 +295,20 @@ const CSS = `
   .color-swatch[data-code="68"] { background: var(--vb-violet); }
   .color-swatch[data-code="69"] { background: var(--vb-white); }
   .color-swatch[data-code="70"] { background: var(--vb-black); border-color: var(--border); }
-  .color-swatch[data-code="71"] { background: var(--vb-white); }
+  .color-swatch[data-code="71"] {
+    background-color: var(--vb-white);
+    background-image:
+      repeating-linear-gradient(0deg,   #0002 0, #0002 2px, transparent 2px, transparent 7px),
+      repeating-linear-gradient(90deg,  #0002 0, #0002 2px, transparent 2px, transparent 7px);
+  }
+  .wrapper.white-board-active .color-swatch[data-code="71"] {
+    background-color: var(--vb-black);
+    background-image:
+      repeating-linear-gradient(0deg,   #fff2 0, #fff2 2px, transparent 2px, transparent 7px),
+      repeating-linear-gradient(90deg,  #fff2 0, #fff2 2px, transparent 2px, transparent 7px);
+  }
+
+  .board-outer.white-board .cell[data-color="71"] { background: var(--vb-black); color: var(--vb-white); }
 
   .swatch-label { font-size: 9px; text-align: center; color: var(--muted); margin-top: 2px; font-family: 'Space Mono', monospace; }
   .swatch-wrap  { display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -423,7 +456,8 @@ const CSS = `
     text-transform: uppercase;
   }
   .mode-badge.text  { background: #27ae6022; color: #2ecc71; border: 1px solid #27ae6044; }
-  .mode-badge.color { background: #8e44ad22; color: #a855f7; border: 1px solid #8e44ad44; }
+  .mode-badge.color { background: #8e44ad22; color: #a855f7; border: 1px solid #8e44ad44; cursor: pointer; }
+  .mode-badge.color:hover { background: #8e44ad44; }
 
   /* ── Settings modal ── */
   .modal-overlay {
@@ -466,6 +500,7 @@ const HTML = `
     </div>
     <div class="header-actions">
       <span id="modeBadge" class="mode-badge text">TEXT MODE</span>
+      <span class="version-label">v${VERSION}</span>
       <button class="btn-ghost" id="settingsBtn">&#9881; Settings</button>
     </div>
   </header>
@@ -477,6 +512,10 @@ const HTML = `
         <select id="boardModel" class="board-model-select">
           <option value="flagship">Flagship (22&times;6)</option>
           <option value="note">Note (15&times;3)</option>
+        </select>
+        <select id="boardColor" class="board-model-select">
+          <option value="black">Black Board</option>
+          <option value="white">White Board</option>
         </select>
         &mdash; click a cell to move cursor, then type
       </div>
@@ -590,6 +629,7 @@ class VestaboardComposer extends HTMLElement {
     this._cursorRow = 0;
     this._cursorCol = 0;
     this._selectedColor = null;
+    this._boardColor = 'black';
     this._devices = [];
     this._initialized = false;
     this._statusTimer = null;
@@ -616,6 +656,7 @@ class VestaboardComposer extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>${CSS}</style>${HTML}`;
 
     this._grid         = this._el('boardGrid');
+    this._boardOuter   = this.shadowRoot.querySelector('.board-outer');
     this._modeBadge    = this._el('modeBadge');
     this._devicePicker = this._el('devicePicker');
     this._durationInput = this._el('duration');
@@ -624,6 +665,7 @@ class VestaboardComposer extends HTMLElement {
     this._wrapper      = this.shadowRoot.querySelector('.wrapper');
 
     this._el('boardModel').addEventListener('change', e => this._setModel(e.target.value));
+    this._el('boardColor').addEventListener('change', e => this._setBoardColor(e.target.value));
     this._applyGridStyle();
 
     this._buildGrid();
@@ -645,6 +687,14 @@ class VestaboardComposer extends HTMLElement {
     this._el('copyYaml').addEventListener('click', () => this._copyOutput('yaml'));
 
     this._el('sendBtn').addEventListener('click', () => this._sendMessage());
+
+    this._modeBadge.addEventListener('click', () => {
+      if (this._selectedColor !== null) {
+        this._selectedColor = null;
+        this._updateColorUI();
+        this._grid.focus();
+      }
+    });
 
     this._el('settingsBtn').addEventListener('click',       () => this._openSettings());
     this._el('cancelSettingsBtn').addEventListener('click', () => this._closeSettings());
@@ -860,18 +910,28 @@ class VestaboardComposer extends HTMLElement {
 
   // ── Output ────────────────────────────────────────────────────────────────
 
+  // Code 71 (Filled) is not supported by the local API. Map it to the
+  // equivalent solid colour for the current board: White (69) on a black
+  // board, Black (70) on a white board.
+  _localBoard() {
+    const replacement = this._boardColor === 'white' ? 70 : 69;
+    return this._board.map(row => row.map(v => v === 71 ? replacement : v));
+  }
+
   _updateOutputs() {
-    // Raw array
-    const rawLines = this._board.map(row => '[' + row.join(',') + ']');
+    const local = this._localBoard();
+
+    // Raw array — local API, no code 71
+    const rawLines = local.map(row => '[' + row.join(',') + ']');
     this._el('outputRaw').textContent = '[\n  ' + rawLines.join(',\n  ') + '\n]';
 
-    // VBML JSON — rawCharacters preserves exact cell positions
+    // VBML JSON — cloud API, code 71 is valid here
     this._el('outputJson').textContent = JSON.stringify(
       { components: [{ rawCharacters: this._board }] }, null, 2
     );
 
-    // HA Action YAML
-    const rowsYaml = this._board
+    // HA Action YAML — local API, no code 71
+    const rowsYaml = local
       .map(row => '          - [' + row.join(', ') + ']')
       .join('\n');
     this._el('outputYaml').textContent = [
@@ -970,9 +1030,22 @@ class VestaboardComposer extends HTMLElement {
 
   // ── Settings ──────────────────────────────────────────────────────────────
 
+  _setBoardColor(color) {
+    this._boardColor = color;
+    const isWhite = color === 'white';
+    this._boardOuter.classList.toggle('white-board', isWhite);
+    this._wrapper.classList.toggle('white-board-active', isWhite);
+    localStorage.setItem('vb_board_color', color);
+  }
+
   _loadSettings() {
-    const saved = localStorage.getItem('vb_cell_size');
-    if (saved) this._wrapper.style.setProperty('--cell-size', saved + 'px');
+    const savedSize = localStorage.getItem('vb_cell_size');
+    if (savedSize) this._wrapper.style.setProperty('--cell-size', savedSize + 'px');
+    const savedColor = localStorage.getItem('vb_board_color');
+    if (savedColor) {
+      this._el('boardColor').value = savedColor;
+      this._setBoardColor(savedColor);
+    }
   }
 
   _openSettings() {

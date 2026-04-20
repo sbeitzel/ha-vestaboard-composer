@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vestaboard Composer — Test Fixture</title>
+  <style>body { margin: 0; height: 100vh; }</style>
+</head>
+<body>
+  <vestaboard-composer></vestaboard-composer>
+  <script type="module">
+    import '/ha-vestaboard-composer.js';
+    document.querySelector('vestaboard-composer').hass = {
+      connection: { sendMessagePromise: async () => [] },
+      callService:  async () => {},
+    };
+  </script>
+</body>
+</html>
