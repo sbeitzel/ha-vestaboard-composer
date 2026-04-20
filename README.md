@@ -36,7 +36,7 @@ panel_custom:
     sidebar_title: Vestaboard
     sidebar_icon: mdi:bulletin-board
     url_path: vestaboard
-    module_url: /hacsfiles/ha-vestaboard-composer/vestaboard-composer.js
+    module_url: /hacsfiles/ha-vestaboard-composer/ha-vestaboard-composer.js
 ```
 
 4. Restart Home Assistant
@@ -47,7 +47,7 @@ The **Vestaboard** entry will appear in your sidebar.
 
 ## Manual Installation
 
-1. Copy `vestaboard-composer.js` to `<config>/www/vestaboard/vestaboard-composer.js`
+1. Copy `ha-vestaboard-composer.js` to `<config>/www/vestaboard/ha-vestaboard-composer.js`
 2. Add to `configuration.yaml`:
 
 ```yaml
@@ -56,7 +56,7 @@ panel_custom:
     sidebar_title: Vestaboard
     sidebar_icon: mdi:bulletin-board
     url_path: vestaboard
-    module_url: /local/vestaboard/vestaboard-composer.js
+    module_url: /local/vestaboard/ha-vestaboard-composer.js
 ```
 
 3. Restart Home Assistant
