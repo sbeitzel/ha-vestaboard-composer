@@ -1,8 +1,13 @@
 # Vestaboard Composer
 
-A HACS frontend plugin for Home Assistant that provides a visual board composer for [Vestaboard](https://www.vestaboard.com/) displays.
+A frontend plugin for Home Assistant that provides a visual board composer for [Vestaboard](https://www.vestaboard.com/) displays.
 
 Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) integration.
+
+ [![Validate](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml/badge.svg)](https://github.co
+  m/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml)
+  [![CI](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml/badge.svg)](https://github.co
+  m/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml)
 
 ![Vestaboard Composer screenshot](screenshot.png)
 
@@ -11,6 +16,7 @@ Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) inte
 ## Features
 
 - Supports **Flagship** (22×6) and **Note** (15×3) board models — switch with the dropdown in the top-left
+- Supports both black and white models
 - Visual grid editor with keyboard navigation
 - Color tile palette (verified color codes)
 - Per-row actions: Clear, Center text, Fill with color
