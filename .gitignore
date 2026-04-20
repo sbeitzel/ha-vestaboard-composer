@@ -1,2 +1,9 @@
 .claude
 
+# developer-local config
+.env
+
+# test tooling
+node_modules/
+playwright-report/
+test-results/
