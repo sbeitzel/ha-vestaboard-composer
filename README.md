@@ -23,6 +23,8 @@ Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) inte
   - **VBML JSON** — cloud API format
   - **HA Action YAML** — paste directly into Developer Tools → Actions
 - **Send Now** — select a device and send instantly, with optional duration (reverts to previous message when it expires)
+- **Load Current** — read the message currently displayed on a device and load it into the editor
+- **Import** — paste a raw array or VBML JSON directly into the editor
 
 ---
 
@@ -89,6 +91,21 @@ panel_custom:
 | Clear Row | Blank the cursor's row |
 | Center Row | Center the text content of the cursor's row |
 | Fill Row w/ Color | Fill the entire cursor row with the selected color (or Red if none selected) |
+
+### Loading the Current Message
+
+Select a device from the dropdown in the **Send to Vestaboard** section, then click **Load Current**. The composer reads the message currently displayed on the board — including its model and color — and loads it into the editor, ready to tweak and re-send.
+
+The board model and color dropdowns update automatically to match the device. This requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) integration to have successfully polled the board at least once (it polls every 15 seconds by default).
+
+### Importing from Clipboard
+
+Expand the **Import Raw Array or VBML JSON** section and paste one of:
+
+- A **raw array** — a JSON array of arrays, e.g. `[[0,63,0,...],[...]]`
+- A **VBML JSON** object with a `components[0].rawCharacters` field
+
+Click **Import**. The board model is inferred from the array dimensions (6×22 → Flagship, 3×15 → Note) and the grid updates accordingly. The board color is not inferred — set it manually with the color dropdown if needed. An inline error is shown if the JSON is invalid or the dimensions don't match a known board model.
 
 ### Sending a Message
 Expand the **Send to Vestaboard** section:

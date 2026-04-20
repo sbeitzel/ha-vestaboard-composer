@@ -9,6 +9,7 @@
     "test:ui": "playwright test --ui",
     "screenshot": "node scripts/capture-screenshot.js",
     "deploy": "npm run build && node scripts/deploy.js",
+    "dev-deploy": "node scripts/dev-deploy.js",
     "preversion": "npm test",
     "version": "npm run build && git add ha-vestaboard-composer.js"
   },

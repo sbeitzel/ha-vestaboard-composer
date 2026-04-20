@@ -17,6 +17,14 @@ The user designs a board layout visually, then copies the generated YAML output 
 
 The user designs a board layout, selects a target Vestaboard device from a list of devices already known to Home Assistant, optionally sets a duration, and sends the message immediately. Requires HA integration.
 
+### UC3: Edit Current Message
+> "As a user, I want to load what's currently on my Vestaboard into the editor so I can adjust it and re-send."
+
+Two paths satisfy this use case:
+
+1. **Load Current** — select a device and click the button; the composer reads the board's current state directly from the ha-vestaboard message sensor and populates the editor, including auto-setting the board model and color.
+2. **Paste Import** — paste a previously copied raw array or VBML JSON into the Import section; the composer infers the board model from the array dimensions and populates the editor.
+
 ---
 
 ## Supported Board Types
@@ -175,7 +183,62 @@ await hass.callService(
 
 ---
 
+## Registry Lookups (UC3)
+
+### Device registry — model and color
+
+`_loadDevices` fetches both registries in parallel at init time. After filtering for vestaboard devices, the `model` field on each device registry entry is parsed to extract board type and color:
+
+```js
+// device.model === "Vestaboard Flagship Black" or "Vestaboard Note White"
+const parts = (d.model || '').toLowerCase().split(' ');
+// parts[1] = 'flagship' or 'note'
+// parts[2] = 'black'   or 'white'
+```
+
+This is populated by ha-vestaboard's `DeviceInfo` using `VestaboardModel.name`, which returns `f"Vestaboard {model.capitalize()} {color.capitalize()}"`. No upstream changes were required.
+
+### Entity registry — message sensor lookup
+
+`_messageSensorForDevice(deviceId)` finds the message sensor for a given device by filtering the entity registry:
+
+```js
+this._entityRegistry.find(e =>
+  e.device_id === deviceId &&
+  e.platform === 'vestaboard' &&
+  e.entity_id.startsWith('sensor.') &&
+  e.unique_id?.endsWith('-message')   // hyphen: unique_id = "{entry_id}-message"
+)
+```
+
+The hyphen (not underscore) is important: ha-vestaboard sets `unique_id = f"{entry_id}-{key}"`. The button entity `clear_temporary_message` would incorrectly match `endsWith('_message')`, so both the `sensor.` domain guard and the hyphen suffix are required.
+
+### Parsing character codes
+
+`_parseCharacterCodes(str, rows, cols)` converts the sensor's flat `{N}` string into a 2D array:
+
+```js
+const tokens = [...str.matchAll(/\{(\d+)\}/g)].map(m => parseInt(m[1], 10));
+// validates length === rows * cols
+return Array.from({ length: rows }, (_, r) => tokens.slice(r * cols, (r + 1) * cols));
+```
+
+### Paste import
+
+`_importFromPaste()` handles two JSON formats:
+
+- **Raw array** (`Array.isArray(parsed)`) — used directly as the data
+- **VBML JSON** (`parsed.components[0].rawCharacters`) — the inner array is extracted
+
+Board model is inferred from dimensions; an inline error is shown for unknown dimensions or invalid JSON. Board color is not inferred — the user sets it manually.
+
+### Clipboard fallback
+
+`navigator.clipboard.writeText()` is only available in secure contexts (HTTPS or localhost). Local HA instances served over HTTP fall back to `document.execCommand('copy')` via a temporary off-screen textarea appended to `document.body`.
+
+---
+
 ## Open Questions
 
 - [x] **Color codes** — confirmed by test: VBML `{66}` displays green, matching ha-vestaboard `BLACK_COLOR_MAP`. The correct order is 63=Red, 64=Orange, 65=Yellow, 66=Green, 67=Blue, 68=Violet, 69=White, 70=Black, 71=Filled. Composer updated accordingly.
-- [ ] **Device model from device registry** — need to confirm the field name that exposes "flagship" vs "note" on a device registry entry so the HACS plugin can auto-resize the grid. Developer currently has Flagship only; Note support can be added later once the field name is known.
+- [x] **Device model from device registry** — the `model` field on the device registry entry contains the full model name string (e.g. `"Vestaboard Flagship Black"`), set by ha-vestaboard's `DeviceInfo`. Parsing `model.toLowerCase().split(' ')` gives `['vestaboard', 'flagship'|'note', 'black'|'white']`.
