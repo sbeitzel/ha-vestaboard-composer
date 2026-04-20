@@ -4,10 +4,8 @@ A frontend plugin for Home Assistant that provides a visual board composer for [
 
 Requires the [ha-vestaboard](https://github.com/natekspencer/ha-vestaboard) integration.
 
- [![Validate](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml/badge.svg)](https://github.co
-  m/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml)
-  [![CI](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml/badge.svg)](https://github.co
-  m/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml)
+[![Validate](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml/badge.svg)](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/validate.yml)
+[![CI](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml/badge.svg)](https://github.com/sbeitzel/ha-vestaboard-composer/actions/workflows/ci.yml)
 
 ![Vestaboard Composer screenshot](screenshot.png)
 
