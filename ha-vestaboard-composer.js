@@ -2,7 +2,7 @@
 // HACS frontend plugin — Vestaboard Composer Panel for Home Assistant
 // https://github.com/sbeitzel/ha-vestaboard-composer
 
-const VERSION = 'dev-ce4da7a4-001e-4b38-a7b3-e4ed2b03460d';
+const VERSION = '1.4.0';
 console.info(`[vestaboard-composer] v${VERSION} loaded`);
 
 // ── Constants ──────────────────────────────────────────────────────────────
