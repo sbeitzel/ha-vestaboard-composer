@@ -9,9 +9,46 @@
   <vestaboard-composer></vestaboard-composer>
   <script type="module">
     import '/ha-vestaboard-composer.js';
+
+    // character_codes strings — flat {N} sequences, row-major
+    // Flagship 6×22 = 132 tokens; Note 3×15 = 45 tokens
+    const flagshipCodes = '{8}' + '{0}'.repeat(131);   // first cell = H (8)
+    const noteCodes     = '{63}' + '{0}'.repeat(44);   // first cell = Red (63)
+    const legacyCodes   = '{27}' + '{0}'.repeat(131);  // first cell = 1 (27)
+
     document.querySelector('vestaboard-composer').hass = {
-      connection: { sendMessagePromise: async () => [] },
-      callService:  async () => {},
+      states: {
+        'sensor.my_flagship_message': {
+          state: 'H',
+          attributes: { character_codes: flagshipCodes },
+        },
+        'sensor.my_note_message': {
+          state: '',
+          attributes: { character_codes: noteCodes },
+        },
+        'sensor.my_legacy_message': {
+          state: '',
+          attributes: { character_codes: legacyCodes },
+        },
+      },
+      connection: {
+        sendMessagePromise: async ({ type }) => {
+          if (type === 'config/device_registry/list') return [
+            { id: 'device-flagship', name: 'My Flagship', model: 'Vestaboard Flagship Black', identifiers: [['vestaboard', 'abc']] },
+            { id: 'device-note',     name: 'My Note',     model: 'Vestaboard Note White',     identifiers: [['vestaboard', 'def']] },
+            { id: 'device-legacy',   name: 'My Legacy',   model: null,                        identifiers: [['vestaboard', 'ghi']] },
+          ];
+          if (type === 'config/entity_registry/list') return [
+            { entity_id: 'sensor.my_flagship_message',              device_id: 'device-flagship', platform: 'vestaboard', unique_id: 'abc-message' },
+            { entity_id: 'button.my_flagship_clear_temp_message',   device_id: 'device-flagship', platform: 'vestaboard', unique_id: 'abc-clear_temporary_message' },
+            { entity_id: 'sensor.my_note_message',                  device_id: 'device-note',     platform: 'vestaboard', unique_id: 'def-message' },
+            { entity_id: 'button.my_note_clear_temp_message',       device_id: 'device-note',     platform: 'vestaboard', unique_id: 'def-clear_temporary_message' },
+            { entity_id: 'sensor.my_legacy_message',                device_id: 'device-legacy',   platform: 'vestaboard', unique_id: 'ghi-message' },
+          ];
+          return [];
+        },
+      },
+      callService: async () => {},
     };
   </script>
 </body>

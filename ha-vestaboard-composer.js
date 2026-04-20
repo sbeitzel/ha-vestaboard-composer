@@ -2,7 +2,7 @@
 // HACS frontend plugin — Vestaboard Composer Panel for Home Assistant
 // https://github.com/sbeitzel/ha-vestaboard-composer
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 console.info(`[vestaboard-composer] v${VERSION} loaded`);
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -484,6 +484,64 @@ const CSS = `
 
   .modal h2 { font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 0.05em; color: var(--accent); }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── Import section ── */
+  .import-section {
+    width: 100%;
+    max-width: 1200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .import-section summary {
+    list-style: none;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid transparent;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .import-section summary::-webkit-details-marker { display: none; }
+  .import-section summary::before { content: '▶\u00a0'; font-size: 9px; }
+  .import-section[open] summary { color: var(--text); border-bottom-color: var(--border); }
+  .import-section[open] summary::before { content: '▼\u00a0'; }
+  .import-section summary:hover { color: var(--text); }
+
+  .import-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .import-textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 10px 12px;
+    outline: none;
+    width: 100%;
+    height: 100px;
+    resize: vertical;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .import-textarea:focus { border-color: var(--accent); }
+  .import-textarea::placeholder { color: #555; }
+
+  .import-actions { display: flex; gap: 10px; align-items: center; }
+
+  .import-error {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: #e74c3c;
+  }
 `;
 
 // ── HTML template ──────────────────────────────────────────────────────────
@@ -574,6 +632,18 @@ const HTML = `
       </div>
     </div>
 
+    <details class="import-section" id="importSection">
+      <summary>Import Raw Array or VBML JSON</summary>
+      <div class="import-body">
+        <textarea id="importTextarea" class="import-textarea"
+                  placeholder="Paste a raw array [[0,63,...],[...]] or VBML JSON {&quot;components&quot;:[{&quot;rawCharacters&quot;:[[...]]}]}"></textarea>
+        <div class="import-actions">
+          <button class="btn-secondary" id="importBtn">Import</button>
+          <span class="import-error" id="importError"></span>
+        </div>
+      </div>
+    </details>
+
     <div class="send-section">
       <div class="send-header">
         <span>&#9889; Send to Vestaboard</span>
@@ -592,6 +662,7 @@ const HTML = `
           </div>
         </div>
         <div class="send-actions">
+          <button class="btn-secondary" id="loadCurrentBtn" disabled>Load Current</button>
           <button class="btn-primary" id="sendBtn">Send Now</button>
           <div class="status-msg" id="statusMsg"></div>
         </div>
@@ -631,6 +702,7 @@ class VestaboardComposer extends HTMLElement {
     this._selectedColor = null;
     this._boardColor = 'black';
     this._devices = [];
+    this._entityRegistry = [];
     this._initialized = false;
     this._statusTimer = null;
   }
@@ -655,14 +727,15 @@ class VestaboardComposer extends HTMLElement {
   _init() {
     this.shadowRoot.innerHTML = `<style>${CSS}</style>${HTML}`;
 
-    this._grid         = this._el('boardGrid');
-    this._boardOuter   = this.shadowRoot.querySelector('.board-outer');
-    this._modeBadge    = this._el('modeBadge');
-    this._devicePicker = this._el('devicePicker');
-    this._durationInput = this._el('duration');
-    this._statusMsg    = this._el('statusMsg');
-    this._settingsModal = this._el('settingsModal');
-    this._wrapper      = this.shadowRoot.querySelector('.wrapper');
+    this._grid           = this._el('boardGrid');
+    this._boardOuter     = this.shadowRoot.querySelector('.board-outer');
+    this._modeBadge      = this._el('modeBadge');
+    this._devicePicker   = this._el('devicePicker');
+    this._loadCurrentBtn = this._el('loadCurrentBtn');
+    this._durationInput  = this._el('duration');
+    this._statusMsg      = this._el('statusMsg');
+    this._settingsModal  = this._el('settingsModal');
+    this._wrapper        = this.shadowRoot.querySelector('.wrapper');
 
     this._el('boardModel').addEventListener('change', e => this._setModel(e.target.value));
     this._el('boardColor').addEventListener('change', e => this._setBoardColor(e.target.value));
@@ -686,6 +759,11 @@ class VestaboardComposer extends HTMLElement {
     this._el('copyJson').addEventListener('click', () => this._copyOutput('json'));
     this._el('copyYaml').addEventListener('click', () => this._copyOutput('yaml'));
 
+    this._devicePicker.addEventListener('change', () => {
+      this._loadCurrentBtn.disabled = !this._devicePicker.value;
+    });
+    this._loadCurrentBtn.addEventListener('click', () => this._loadFromDevice());
+    this._el('importBtn').addEventListener('click', () => this._importFromPaste());
     this._el('sendBtn').addEventListener('click', () => this._sendMessage());
 
     this._modeBadge.addEventListener('click', () => {
@@ -944,12 +1022,27 @@ class VestaboardComposer extends HTMLElement {
     ].join('\n');
   }
 
+  async _copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for non-secure contexts (local HA served over HTTP)
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  }
+
   async _copyOutput(which) {
     const map = { raw: ['outputRaw','copyRaw'], json: ['outputJson','copyJson'], yaml: ['outputYaml','copyYaml'] };
     const [elId, btnId] = map[which];
     const btn = this._el(btnId);
     try {
-      await navigator.clipboard.writeText(this._el(elId).textContent);
+      await this._copyToClipboard(this._el(elId).textContent);
       btn.textContent = '✓ Copied!';
       btn.classList.add('copied');
       setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
@@ -961,13 +1054,20 @@ class VestaboardComposer extends HTMLElement {
   async _loadDevices() {
     if (!this._hass) return;
     try {
-      const all = await this._hass.connection.sendMessagePromise({
-        type: 'config/device_registry/list',
-      });
-      this._devices = all.filter(d =>
-        Array.isArray(d.identifiers) &&
-        d.identifiers.some(([domain]) => domain === 'vestaboard')
-      );
+      const [allDevices, allEntities] = await Promise.all([
+        this._hass.connection.sendMessagePromise({ type: 'config/device_registry/list' }),
+        this._hass.connection.sendMessagePromise({ type: 'config/entity_registry/list' }),
+      ]);
+      this._entityRegistry = allEntities;
+      this._devices = allDevices
+        .filter(d =>
+          Array.isArray(d.identifiers) &&
+          d.identifiers.some(([domain]) => domain === 'vestaboard')
+        )
+        .map(d => {
+          const parts = (d.model || '').toLowerCase().split(' ');
+          return { ...d, boardModel: parts[1], boardColor: parts[2] };
+        });
       this._updateDevicePicker();
     } catch (err) {
       console.error('[vestaboard-composer] Failed to load devices:', err);
@@ -986,6 +1086,118 @@ class VestaboardComposer extends HTMLElement {
         const name = d.name_by_user || d.name || d.id;
         return `<option value="${d.id}">${name}</option>`;
       }).join('');
+  }
+
+  // ── Load from device ─────────────────────────────────────────────────────
+
+  _messageSensorForDevice(deviceId) {
+    return this._entityRegistry.find(e =>
+      e.device_id === deviceId &&
+      e.platform === 'vestaboard' &&
+      e.entity_id.startsWith('sensor.') &&
+      e.unique_id?.endsWith('-message')
+    )?.entity_id ?? null;
+  }
+
+  _parseCharacterCodes(str, rows, cols) {
+    const tokens = [...str.matchAll(/\{(\d+)\}/g)].map(m => parseInt(m[1], 10));
+    if (tokens.length !== rows * cols) {
+      console.warn(`[vestaboard-composer] character_codes length ${tokens.length} !== ${rows * cols}`);
+      return null;
+    }
+    return Array.from({ length: rows }, (_, r) => tokens.slice(r * cols, (r + 1) * cols));
+  }
+
+  async _loadFromDevice() {
+    const deviceId = this._devicePicker.value;
+    if (!deviceId) return;
+
+    const device = this._devices.find(d => d.id === deviceId);
+    if (!device) {
+      this._showStatus('Device not found.', 'error');
+      return;
+    }
+
+    const { boardModel, boardColor } = device;
+    if (!boardModel || !boardColor || !BOARD_MODELS[boardModel]) {
+      this._showStatus('Could not determine board model from device info.', 'error');
+      return;
+    }
+
+    const entityId = this._messageSensorForDevice(deviceId);
+    if (!entityId) {
+      this._showStatus('No message sensor found for this device.', 'error');
+      return;
+    }
+
+    const state = this._hass.states[entityId];
+    if (!state?.attributes?.character_codes) {
+      this._showStatus('Message sensor state unavailable.', 'error');
+      return;
+    }
+
+    const { rows, cols } = BOARD_MODELS[boardModel];
+    const board = this._parseCharacterCodes(state.attributes.character_codes, rows, cols);
+    if (!board) {
+      this._showStatus('Failed to parse board data from sensor.', 'error');
+      return;
+    }
+
+    this._el('boardModel').value = boardModel;
+    this._setModel(boardModel);
+    this._el('boardColor').value = boardColor;
+    this._setBoardColor(boardColor);
+
+    this._board = board;
+    this._renderBoard();
+    this._showStatus('✓ Board loaded from device.', 'success');
+  }
+
+  _importFromPaste() {
+    const errorEl = this._el('importError');
+    errorEl.textContent = '';
+
+    const raw = this._el('importTextarea').value.trim();
+    if (!raw) return;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      errorEl.textContent = 'Invalid JSON — could not parse input.';
+      return;
+    }
+
+    let data;
+    if (Array.isArray(parsed)) {
+      data = parsed;
+    } else if (Array.isArray(parsed?.components?.[0]?.rawCharacters)) {
+      data = parsed.components[0].rawCharacters;
+    } else {
+      errorEl.textContent = 'Unrecognised format — expected an array of arrays or VBML JSON with components[0].rawCharacters.';
+      return;
+    }
+
+    if (!data.every(row => Array.isArray(row))) {
+      errorEl.textContent = 'Invalid data — each row must be an array.';
+      return;
+    }
+
+    const rows = data.length;
+    const cols = data[0]?.length ?? 0;
+    const modelKey = Object.keys(BOARD_MODELS).find(
+      k => BOARD_MODELS[k].rows === rows && BOARD_MODELS[k].cols === cols
+    );
+
+    if (!modelKey) {
+      errorEl.textContent = `Unknown dimensions ${cols}\u00d7${rows} — expected 22\u00d76 (Flagship) or 15\u00d73 (Note).`;
+      return;
+    }
+
+    this._el('boardModel').value = modelKey;
+    this._setModel(modelKey);
+    this._board = data.map(row => [...row]);
+    this._renderBoard();
   }
 
   // ── Send ──────────────────────────────────────────────────────────────────

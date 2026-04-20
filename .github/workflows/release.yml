@@ -12,6 +12,13 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify tag is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "${{ github.sha }}" origin/main \
+            || { echo "::error::Tag ${{ github.ref_name }} is not on main — release skipped."; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

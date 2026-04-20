@@ -203,3 +203,155 @@ test('Escape key returns mode badge to TEXT MODE', async ({ page }) => {
   const text = await shadow(page, (root) => root.getElementById('modeBadge').textContent);
   expect(text).toBe('TEXT MODE');
 });
+
+// ── Load Current button ───────────────────────────────────────────────────────
+
+/** Wait for the device picker to be populated with real options. */
+async function waitForDevices(page) {
+  await page.waitForFunction(() => {
+    const root = document.querySelector('vestaboard-composer').shadowRoot;
+    const picker = root.getElementById('devicePicker');
+    return picker && picker.options.length > 1;
+  });
+}
+
+/** Read _board[row][col] directly from the component instance. */
+function boardCell(page, row, col) {
+  return page.evaluate(
+    ([r, c]) => document.querySelector('vestaboard-composer')._board[r][c],
+    [row, col],
+  );
+}
+
+/** Set a textarea value inside the shadow root. */
+function setTextarea(page, id, value) {
+  return page.evaluate(
+    ([id, value]) => {
+      const root = document.querySelector('vestaboard-composer').shadowRoot;
+      root.getElementById(id).value = value;
+    },
+    [id, value],
+  );
+}
+
+test('"Load Current" button exists in the DOM', async ({ page }) => {
+  const exists = await shadow(page, root => !!root.getElementById('loadCurrentBtn'));
+  expect(exists).toBe(true);
+});
+
+test('"Load Current" button is disabled when no device is selected', async ({ page }) => {
+  await waitForDevices(page);
+  const disabled = await shadow(page, root => root.getElementById('loadCurrentBtn').disabled);
+  expect(disabled).toBe(true);
+});
+
+test('"Load Current" button is enabled after a device is selected', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-flagship');
+  const disabled = await shadow(page, root => root.getElementById('loadCurrentBtn').disabled);
+  expect(disabled).toBe(false);
+});
+
+test('clicking "Load Current" for flagship populates 132 cells with correct data', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-flagship');
+  await shadow(page, root => root.getElementById('loadCurrentBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 8,
+  );
+  const cellCount = await shadow(page, root => root.querySelectorAll('.cell').length);
+  expect(cellCount).toBe(132);
+  expect(await boardCell(page, 0, 0)).toBe(8);
+});
+
+test('clicking "Load Current" for flagship sets model dropdown to "flagship"', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-flagship');
+  await shadow(page, root => root.getElementById('loadCurrentBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 8,
+  );
+  const model = await shadow(page, root => root.getElementById('boardModel').value);
+  expect(model).toBe('flagship');
+});
+
+test('clicking "Load Current" for flagship sets color dropdown to "black"', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-flagship');
+  await shadow(page, root => root.getElementById('loadCurrentBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 8,
+  );
+  const color = await shadow(page, root => root.getElementById('boardColor').value);
+  expect(color).toBe('black');
+});
+
+test('clicking "Load Current" for note gives 45 cells, model="note", color="white"', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-note');
+  await shadow(page, root => root.getElementById('loadCurrentBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 63,
+  );
+  const cellCount = await shadow(page, root => root.querySelectorAll('.cell').length);
+  const model = await shadow(page, root => root.getElementById('boardModel').value);
+  const color = await shadow(page, root => root.getElementById('boardColor').value);
+  expect(cellCount).toBe(45);
+  expect(model).toBe('note');
+  expect(color).toBe('white');
+});
+
+test('loading a device with no parseable model shows an error and leaves board unchanged', async ({ page }) => {
+  await waitForDevices(page);
+  await selectChange(page, 'devicePicker', 'device-legacy');
+  await shadow(page, root => root.getElementById('loadCurrentBtn').click());
+  // Board must remain all-zero (unchanged); cell (0,0) should still be 0
+  const cell = await boardCell(page, 0, 0);
+  expect(cell).toBe(0);
+  // An error status message must be visible
+  const statusClass = await shadow(page, root => root.getElementById('statusMsg').className);
+  expect(statusClass).toContain('error');
+});
+
+// ── Paste import ──────────────────────────────────────────────────────────────
+
+/** Build a 6×22 raw array with first cell = value, rest zero. */
+function flagshipArray(firstCell = 0) {
+  const row0 = [firstCell, ...Array(21).fill(0)];
+  return [row0, ...Array(5).fill(null).map(() => Array(22).fill(0))];
+}
+
+test('paste import: a valid raw JSON array of arrays populates the board', async ({ page }) => {
+  const payload = JSON.stringify(flagshipArray(5)); // first cell = E (5)
+  await setTextarea(page, 'importTextarea', payload);
+  await shadow(page, root => root.getElementById('importBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 5,
+  );
+  expect(await boardCell(page, 0, 0)).toBe(5);
+});
+
+test('paste import: a valid VBML JSON with rawCharacters populates the board', async ({ page }) => {
+  const payload = JSON.stringify({ components: [{ rawCharacters: flagshipArray(12) }] }); // L (12)
+  await setTextarea(page, 'importTextarea', payload);
+  await shadow(page, root => root.getElementById('importBtn').click());
+  await page.waitForFunction(
+    () => document.querySelector('vestaboard-composer')._board[0][0] === 12,
+  );
+  expect(await boardCell(page, 0, 0)).toBe(12);
+});
+
+test('paste import: mismatched dimensions shows an inline error', async ({ page }) => {
+  const payload = JSON.stringify(Array(4).fill(Array(10).fill(0))); // 4×10, not a known model
+  await setTextarea(page, 'importTextarea', payload);
+  await shadow(page, root => root.getElementById('importBtn').click());
+  const errorText = await shadow(page, root => root.getElementById('importError').textContent);
+  expect(errorText.length).toBeGreaterThan(0);
+});
+
+test('paste import: invalid JSON shows an inline error', async ({ page }) => {
+  await setTextarea(page, 'importTextarea', 'not valid json {{');
+  await shadow(page, root => root.getElementById('importBtn').click());
+  const errorText = await shadow(page, root => root.getElementById('importError').textContent);
+  expect(errorText.length).toBeGreaterThan(0);
+});
