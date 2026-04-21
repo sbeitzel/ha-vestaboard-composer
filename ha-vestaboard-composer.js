@@ -1076,16 +1076,20 @@ class VestaboardComposer extends HTMLElement {
   }
 
   _updateDevicePicker() {
-    if (this._devices.length === 0) {
-      this._devicePicker.innerHTML = '<option value="">No Vestaboard devices found</option>';
-      return;
+    const frag = document.createDocumentFragment();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = this._devices.length === 0
+      ? 'No Vestaboard devices found'
+      : 'Select a Vestaboard\u2026';
+    frag.appendChild(placeholder);
+    for (const d of this._devices) {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.name_by_user || d.name || d.id;
+      frag.appendChild(opt);
     }
-    this._devicePicker.innerHTML =
-      '<option value="">Select a Vestaboard\u2026</option>' +
-      this._devices.map(d => {
-        const name = d.name_by_user || d.name || d.id;
-        return `<option value="${d.id}">${name}</option>`;
-      }).join('');
+    this._devicePicker.replaceChildren(frag);
   }
 
   // ── Load from device ─────────────────────────────────────────────────────
