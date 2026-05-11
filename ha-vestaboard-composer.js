@@ -101,7 +101,9 @@ const CSS = `
     display: flex;
     align-items: center;
     gap: 10px;
+    text-decoration: none;
   }
+  .logo:hover { opacity: 0.8; }
 
   .logo-icon {
     width: 28px; height: 18px;
@@ -140,6 +142,16 @@ const CSS = `
     background: transparent;
     color: var(--muted);
     border: 1px solid var(--border);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.15s ease;
   }
   .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
 
@@ -549,16 +561,17 @@ const CSS = `
 const HTML = `
 <div class="wrapper">
   <header>
-    <div class="logo">
+    <a class="logo" href="https://github.com/sbeitzel/ha-vestaboard-composer" target="_blank" rel="noopener noreferrer">
       <div class="logo-icon">
         <span></span><span></span><span></span><span></span>
         <span></span><span></span><span></span><span></span>
       </div>
       VESTABOARD COMPOSER
-    </div>
+    </a>
     <div class="header-actions">
       <span id="modeBadge" class="mode-badge text">TEXT MODE</span>
       <span class="version-label">v${VERSION}</span>
+      <a class="btn-ghost" href="https://github.com/sbeitzel/ha-vestaboard-composer/issues/new" target="_blank" rel="noopener noreferrer">Report Issue</a>
       <button class="btn-ghost" id="settingsBtn">&#9881; Settings</button>
     </div>
   </header>
