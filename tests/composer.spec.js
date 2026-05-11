@@ -68,7 +68,7 @@ test('switching to Note model gives 3 rows × 15 columns', async ({ page }) => {
   expect(cols).toBe(15);
 });
 
-// ── board colour — blank cells ────────────────────────────────────────────────
+// ── board color — blank cells ────────────────────────────────────────────────
 
 test('blank cells are dark on black board (default)', async ({ page }) => {
   const bg = await bgColor(page, '.cell');

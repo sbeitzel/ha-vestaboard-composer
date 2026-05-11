@@ -899,7 +899,7 @@ class VestaboardComposer extends HTMLElement {
     this._renderBoard();
   }
 
-  // ── Colour palette ────────────────────────────────────────────────────────
+  // ── Color palette ────────────────────────────────────────────────────────
 
   _buildPalette() {
     const palette = this._el('colorPalette');
@@ -989,7 +989,7 @@ class VestaboardComposer extends HTMLElement {
   // ── Output ────────────────────────────────────────────────────────────────
 
   // Code 71 (Filled) is not supported by the local API. Map it to the
-  // equivalent solid colour for the current board: White (69) on a black
+  // equivalent solid color for the current board: White (69) on a black
   // board, Black (70) on a white board.
   _localBoard() {
     const replacement = this._boardColor === 'white' ? 70 : 69;
