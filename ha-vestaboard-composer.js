@@ -48,8 +48,10 @@ const CSS = `
     display: block;
     height: 100%;
     overflow-y: auto;
-    --cell-size: 48px;
-    --cell-gap: 3px;
+    --cell-w: 32px;
+    --cell-h: calc(var(--cell-w) * 1.7);
+    --cell-gap-col: 3px;
+    --cell-gap-row: calc(var(--cell-gap-col) * 2);
     --bg: #0e0e10;
     --surface: #18181c;
     --surface2: #222228;
@@ -229,21 +231,23 @@ const CSS = `
 
   .board-grid {
     display: grid;
-    gap: var(--cell-gap);
+    column-gap: var(--cell-gap-col);
+    row-gap: var(--cell-gap-row);
     outline: none;
     user-select: none;
   }
 
   .cell {
-    width: var(--cell-size);
-    height: var(--cell-size);
+    position: relative;
+    width: var(--cell-w);
+    height: var(--cell-h);
     border-radius: 4px;
     background: var(--vb-blank);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Space Mono', monospace;
-    font-size: 22px;
+    font-size: 15px;
     font-weight: 700;
     color: transparent;
     cursor: pointer;
@@ -253,15 +257,28 @@ const CSS = `
 
   .cell[data-char]:not([data-char="0"]) { color: var(--vb-white); }
 
-  .cell[data-color="63"] { background: var(--vb-red); }
-  .cell[data-color="64"] { background: var(--vb-orange); }
-  .cell[data-color="65"] { background: var(--vb-yellow); color: #111 !important; }
-  .cell[data-color="66"] { background: var(--vb-green); }
-  .cell[data-color="67"] { background: var(--vb-blue); }
-  .cell[data-color="68"] { background: var(--vb-violet); }
-  .cell[data-color="69"] { background: var(--vb-white); color: #111 !important; }
-  .cell[data-color="70"] { background: var(--vb-black); }
-  .cell[data-color="71"] { background: var(--vb-white); color: #111 !important; }
+  /* Color swatch: a square inset within the cell window, matching physical proportions.
+     0.9" wide × 0.9" tall (square), top offset 0.25" in a 1" × 1.7" window. */
+  .cell[data-color]:not([data-color="0"])::before {
+    content: '';
+    position: absolute;
+    width: calc(var(--cell-w) * 0.9);
+    height: calc(var(--cell-w) * 0.9);
+    top: calc(var(--cell-w) * 0.25);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 2px;
+    background: var(--cell-swatch, transparent);
+  }
+  .cell[data-color="63"] { --cell-swatch: var(--vb-red); }
+  .cell[data-color="64"] { --cell-swatch: var(--vb-orange); }
+  .cell[data-color="65"] { --cell-swatch: var(--vb-yellow); }
+  .cell[data-color="66"] { --cell-swatch: var(--vb-green); }
+  .cell[data-color="67"] { --cell-swatch: var(--vb-blue); }
+  .cell[data-color="68"] { --cell-swatch: var(--vb-violet); }
+  .cell[data-color="69"] { --cell-swatch: var(--vb-white); }
+  .cell[data-color="70"] { --cell-swatch: var(--vb-black); }
+  .cell[data-color="71"] { --cell-swatch: var(--vb-white); }
 
   .cell.cursor { box-shadow: 0 0 0 2px var(--accent), 0 0 12px #e8c84a66; z-index: 2; }
   .cell:hover:not(.cursor) { box-shadow: 0 0 0 1px var(--muted); }
@@ -320,7 +337,7 @@ const CSS = `
       repeating-linear-gradient(90deg,  #fff2 0, #fff2 2px, transparent 2px, transparent 7px);
   }
 
-  .board-outer.white-board .cell[data-color="71"] { background: var(--vb-black); color: var(--vb-white); }
+  .board-outer.white-board .cell[data-color="71"] { --cell-swatch: var(--vb-black); }
 
   .swatch-label { font-size: 9px; text-align: center; color: var(--muted); margin-top: 2px; font-family: 'Space Mono', monospace; }
   .swatch-wrap  { display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -688,8 +705,8 @@ const HTML = `
     <div class="modal">
       <h2>Settings</h2>
       <div class="field">
-        <label>Cell Size (px)</label>
-        <input type="number" id="settingCellSize" value="48" min="24" max="72" step="4" />
+        <label>Cell Width (px)</label>
+        <input type="number" id="settingCellSize" value="32" min="16" max="64" step="4" />
       </div>
       <div class="modal-actions">
         <button class="btn-ghost" id="cancelSettingsBtn">Cancel</button>
@@ -823,8 +840,8 @@ class VestaboardComposer extends HTMLElement {
   }
 
   _applyGridStyle() {
-    this._grid.style.gridTemplateColumns = `repeat(${this._cols}, var(--cell-size))`;
-    this._grid.style.gridTemplateRows    = `repeat(${this._rows}, var(--cell-size))`;
+    this._grid.style.gridTemplateColumns = `repeat(${this._cols}, var(--cell-w))`;
+    this._grid.style.gridTemplateRows    = `repeat(${this._rows}, var(--cell-h))`;
   }
 
   _setModel(modelKey) {
@@ -1269,7 +1286,7 @@ class VestaboardComposer extends HTMLElement {
 
   _loadSettings() {
     const savedSize = localStorage.getItem('vb_cell_size');
-    if (savedSize) this._wrapper.style.setProperty('--cell-size', savedSize + 'px');
+    if (savedSize) this._wrapper.style.setProperty('--cell-w', savedSize + 'px');
     const savedColor = localStorage.getItem('vb_board_color');
     if (savedColor) {
       this._el('boardColor').value = savedColor;
@@ -1278,8 +1295,8 @@ class VestaboardComposer extends HTMLElement {
   }
 
   _openSettings() {
-    const current = this._wrapper.style.getPropertyValue('--cell-size');
-    this._el('settingCellSize').value = current ? parseInt(current) : 48;
+    const current = this._wrapper.style.getPropertyValue('--cell-w');
+    this._el('settingCellSize').value = current ? parseInt(current) : 32;
     this._settingsModal.classList.add('open');
   }
 
@@ -1289,8 +1306,8 @@ class VestaboardComposer extends HTMLElement {
 
   _applySettings() {
     const size = parseInt(this._el('settingCellSize').value);
-    if (size >= 24 && size <= 72) {
-      this._wrapper.style.setProperty('--cell-size', size + 'px');
+    if (size >= 16 && size <= 64) {
+      this._wrapper.style.setProperty('--cell-w', size + 'px');
       localStorage.setItem('vb_cell_size', size);
     }
     this._closeSettings();
